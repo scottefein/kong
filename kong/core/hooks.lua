@@ -2,6 +2,7 @@ local events = require "kong.core.events"
 local cache = require "kong.tools.database_cache"
 local stringy = require "stringy"
 local cjson = require "cjson"
+local Serf = require "kong.cli.services.serf"
 
 local function invalidate_plugin(entity)
   cache.delete(cache.plugin_key(entity.name, entity.api_id, entity.consumer_id))
@@ -44,7 +45,7 @@ local function parse_member(member_str)
       if index == 1 then
         result.name = v
       elseif index == 2 then
-        result.address = retrieve_member_address(result.name)
+        result.cluster_listening_address = retrieve_member_address(result.name)
       end
       index = index + 1
     end
@@ -76,7 +77,7 @@ local function member_update(message_t)
 
   if #nodes == 1 then
     local node = table.remove(nodes, 1)
-    node.address = member.address
+    node.cluster_listening_address = member.cluster_listening_address
     local _, err = dao.nodes:update(node)
     if err then
       ngx.log(ngx.ERR, tostring(err))
@@ -99,7 +100,7 @@ local function member_join(message_t)
   if #nodes == 0 then -- Insert
     local _, err = dao.nodes:insert({
       name = stringy.strip(member.name),
-      address = stringy.strip(member.address)
+      cluster_listening_address = stringy.strip(member.cluster_listening_address)
     })
     if err then
       ngx.log(ngx.ERR, tostring(err))
@@ -123,7 +124,7 @@ return {
     invalidate(message_t)
   end,
   [events.TYPES.CLUSTER_PROPAGATE] = function(message_t)
-    local serf = require("kong.cli.services.serf")(configuration)
+    local serf = Serf(configuration)
     local ok, err = serf:event(message_t)
     if not ok then
       ngx.log(ngx.ERR, err)

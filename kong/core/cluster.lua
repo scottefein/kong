@@ -1,5 +1,11 @@
 local cluster_utils = require "kong.tools.cluster"
 
+local resty_lock
+local status, res = pcall(require, "resty.lock")
+if status then
+  resty_lock = res
+end
+
 local INTERVAL = 30
 
 local function create_timer(at, cb)
@@ -12,7 +18,6 @@ end
 local function send_keepalive(premature)
   if premature then return end
 
-  local resty_lock = require "resty.lock"
   local lock = resty_lock:new("cluster_locks", {
     exptime = INTERVAL - 0.001
   })

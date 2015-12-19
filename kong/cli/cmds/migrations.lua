@@ -5,7 +5,7 @@ local constants = require "kong.constants"
 local logger = require "kong.cli.utils.logger"
 local utils = require "kong.tools.utils"
 local input = require "kong.cli.utils.input"
-local configuration = require "kong.cli.utils.configuration"
+local config_loader = require "kong.tools.config_loader"
 local dao = require "kong.tools.dao_loader"
 local lapp = require "lapp"
 local args = lapp(string.format([[
@@ -28,14 +28,14 @@ if args.command == "migrations" then
   lapp.quit("Missing required <command>.")
 end
 
-local parsed_config = configuration.parse(args.config).value
-local dao_factory = dao.load(parsed_config)
-local migrations = Migrations(dao_factory, parsed_config)
+local configuration = config_loader.load_default(args.config)
+local dao_factory = dao.load(configuration)
+local migrations = Migrations(dao_factory, configuration)
 
 local kind = args.type
 if kind ~= "all" and kind ~= "core" then
   -- Assuming we are trying to run migrations for a plugin
-  if not utils.table_contains(parsed_config.plugins_available, kind) then
+  if not utils.table_contains(configuration.plugins_available, kind) then
     logger:error("No \""..kind.."\" plugin enabled in the configuration.")
     os.exit(1)
   end

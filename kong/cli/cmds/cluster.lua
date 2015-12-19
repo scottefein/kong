@@ -3,8 +3,8 @@
 local constants = require "kong.constants"
 local logger = require "kong.cli.utils.logger"
 local utils = require "kong.tools.utils"
-local configuration = require "kong.cli.utils.configuration"
-local serf = require "kong.cli.services.serf"
+local config_loader = require "kong.tools.config_loader"
+local Serf = require "kong.cli.services.serf"
 local args = require("lapp")(string.format([[
 Kong cluster operations.
 
@@ -21,18 +21,13 @@ Options:
 
 local JOIN = "join"
 local KEYGEN = "keygen"
-local SUPPORTED_COMMANDS = { JOIN, "members", KEYGEN, "reachability" }
+local SUPPORTED_COMMANDS = {JOIN, "members", KEYGEN, "reachability"}
 
 if not utils.table_contains(SUPPORTED_COMMANDS, args.command) then
-  logger:error("Invalid cluster command. Supported commands are: "..table.concat(SUPPORTED_COMMANDS, ", "))
-  os.exit(1)
+  lapp.quit("Invalid cluster command. Supported commands are: "..table.concat(SUPPORTED_COMMANDS, ", "))
 end
 
-local config, err = configuration.parse(args.config)
-if err then
-  logger:error(err)
-  os.exit(1)
-end
+local configuration = config_loader.load_default(args.config)
 
 local signal = args.command
 args.command = nil
@@ -40,19 +35,17 @@ args.config = nil
 
 local skip_running_check
 
-if signal == JOIN then
-  if utils.table_size(args) ~= 1 then
-    logger:error("You must specify one address")
-    os.exit(1)
-  end
+if signal == JOIN and utils.table_size(args) ~= 1 then
+  logger:error("You must specify one address")
+  os.exit(1)
 elseif signal == KEYGEN then
   skip_running_check = true
 end
 
-local res, err = serf(config.value):invoke_signal(signal, args, false, skip_running_check)
+local res, err = Serf(configuration):invoke_signal(signal, args, false, skip_running_check)
 if err then
   logger:error(err)
   os.exit(1)
-else
-  logger:print(res)
 end
+
+logger:print(res)

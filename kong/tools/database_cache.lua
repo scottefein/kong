@@ -53,7 +53,7 @@ function _M.delete(key)
 end
 
 function _M.delete_all()
-  cache:flush_all()
+  cache:flush_all() -- This does not free up the memory, only marks the items as expired
 end
 
 function _M.requests_key()

@@ -30,7 +30,7 @@ function Faker:fake_entity(type)
   elseif type == "node" then
     return {
       name = "random_name_"..r,
-      address = "random_address_"..r
+      cluster_listening_address = "random_address_"..r
     }
   else
     error("Entity of type "..type.." cannot be generated.")

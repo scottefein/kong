@@ -4,7 +4,7 @@ local constants = require "kong.constants"
 local logger = require "kong.cli.utils.logger"
 local IO = require "kong.tools.io"
 local yaml = require "yaml"
-local configuration = require "kong.cli.utils.configuration"
+local config_loader = require "kong.tools.config_loader"
 local args = require("lapp")(string.format([[
 For development purposes only.
 
@@ -20,7 +20,7 @@ Options:
 
 local CONFIG_FILENAME = string.format("kong%s.yml", args.env ~= "" and "_"..args.env or "")
 
-local parsed_config = configuration.parse(args.config).value
+local configuration = config_loader.load_default(args.config)
 local env = args.env:upper()
 
 local DEFAULT_ENV_VALUES = {
@@ -86,7 +86,7 @@ end
 local new_config_content = yaml.dump(new_config)
 
 -- Replace nginx directives
-local nginx_config = parsed_config.nginx
+local nginx_config = configuration.nginx
 for k, v in pairs(DEFAULT_ENV_VALUES[env].nginx) do
   nginx_config = nginx_config:gsub(k, v)
 end

@@ -17,9 +17,8 @@
 --   `KONG_<CONTEXT_NAME>_TIME`: time taken by Kong to execute all the plugins for this context
 --
 -- @see https://github.com/openresty/lua-nginx-module#ngxctx
-
-local utils = require "kong.tools.utils"
 local reports = require "kong.core.reports"
+local utils = require "kong.tools.utils"
 local cluster = require "kong.core.cluster"
 local resolver = require "kong.core.resolver"
 local constants = require "kong.constants"

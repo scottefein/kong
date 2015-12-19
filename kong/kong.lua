@@ -40,6 +40,13 @@ local loaded_plugins = {}
 -- local configuration
 -- local dao_factory
 
+--- Attach a hooks table to the event bus
+local function attach_hooks(events, hooks)
+  for k, v in pairs(hooks) do
+    events:subscribe(k, v)
+  end
+end
+
 --- Load enabled plugins on the node.
 -- Get plugins in the DB (distinct by `name`), compare them with plugins
 -- in kong.yml's `plugins_available`. If both lists match, return a list
@@ -72,6 +79,12 @@ local function load_node_plugins(configuration)
         handler = plugin_handler_mod()
       })
     end
+
+    -- Attaching hooks
+    local loaded, plugin_hooks = utils.load_module_if_exists("kong.plugins."..v..".hooks")
+    if loaded then
+      attach_hooks(events, plugin_hooks)
+    end
   end
 
   table_sort(sorted_plugins, function(a, b)
@@ -88,24 +101,6 @@ local function load_node_plugins(configuration)
   end
 
   return sorted_plugins
-end
-
---- Attach a hooks table to the event bus
-local function attach_hooks(events, hooks)
-  for k, v in pairs(hooks) do
-    events:subscribe(k, v)
-  end
-end
-
---- Attach plugin hooks to event bus
--- Subscribe every event in the hooks.lua for every plugin to the event bus
-local function attach_plugins_hooks(events, plugins)
-  for _, plugin in ipairs(plugins) do
-    local loaded, plugin_hooks = utils.load_module_if_exists("kong.plugins."..plugin.name..".hooks")
-    if loaded then
-      attach_hooks(events, plugin_hooks)
-    end
-  end
 end
 
 --- Kong public context handlers.
@@ -128,14 +123,16 @@ function Kong.init()
   configuration = config_loader.load(os.getenv("KONG_CONF"))
   events = Events()
   dao = dao_loader.load(configuration, events)
-  process_id = utils.random_string()
   loaded_plugins = load_node_plugins(configuration)
 
-  -- Attach hooks for every plugin
-  attach_plugins_hooks(events, loaded_plugins)
-
-  -- Attach core hook
+  -- Attach core hooks
   attach_hooks(events, require("kong.core.hooks"))
+
+  if configuration.send_anonymous_reports then
+    -- Generate the unique_str inside the module
+    local reports = require "kong.core.reports"
+    reports.enable()
+  end
 
   ngx.update_time()
 end

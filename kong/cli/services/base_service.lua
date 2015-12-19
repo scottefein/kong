@@ -8,10 +8,12 @@ local BaseService = Object:extend()
 function BaseService.find_cmd(app_name, additional_paths, check_path_func)
   local found_file_paths = {}
 
-  if IO.cmd_exists(app_name) and not check_path_func then
-    return app_name
-  elseif IO.cmd_exists(app_name) then
-    table.insert(found_file_paths, app_name)
+  if IO.cmd_exists(app_name) then
+    if not check_path_func then
+      return app_name
+    else
+      table.insert(found_file_paths, app_name)
+    end
   end
 
   -- These are some default locations we are always looking into

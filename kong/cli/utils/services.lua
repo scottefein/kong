@@ -16,12 +16,12 @@ local services = {
   require "kong.cli.services.serf"
 }
 
-local function prepare_database(parsed_config)
-  setmetatable(parsed_config.dao_config, require "kong.tools.printable")
-  logger:info(string.format([[database...........%s %s]], parsed_config.database, tostring(parsed_config.dao_config)))
+local function prepare_database(configuration)
+  setmetatable(configuration.dao_config, require "kong.tools.printable")
+  logger:info(string.format([[database...........%s %s]], configuration.database, tostring(configuration.dao_config)))
 
-  local dao_factory = dao.load(parsed_config)
-  local migrations = require("kong.tools.migrations")(dao_factory, parsed_config)
+  local dao_factory = dao.load(configuration)
+  local migrations = require("kong.tools.migrations")(dao_factory, configuration)
 
   local keyspace_exists, err = dao_factory.migrations:keyspace_exists()
   if err then
@@ -55,11 +55,11 @@ local function prepare_database(parsed_config)
   return true
 end
 
-function _M.check_status(configuration)
+function _M.check_status(configuration, configuration_path)
   local running, not_running
 
   for _, service in ipairs(services) do
-    if service(configuration.value, configuration.path):is_running() then
+    if service(configuration, configuration_path):is_running() then
       running = true
     else
       not_running = true
@@ -75,22 +75,22 @@ function _M.check_status(configuration)
   end
 end
 
-function _M.stop_all(configuration)
+function _M.stop_all(configuration, configuration_path)
   -- Stop in reverse order to keep dependencies running
   for index = #services,1,-1 do
-    services[index](configuration.value, configuration.path):stop()
+    services[index](configuration, configuration_path):stop()
   end   
 end
 
-function _M.start_all(configuration)
+function _M.start_all(configuration, configuration_path)
   -- Prepare database if not initialized yet
-  local _, err = prepare_database(configuration.value)
+  local _, err = prepare_database(configuration)
   if err then
     return false, err
   end
 
   for _, v in ipairs(services) do
-    local obj = v(configuration.value, configuration.path)
+    local obj = v(configuration, configuration_path)
     obj:prepare()
     local ok, err = obj:start()
     if not ok then

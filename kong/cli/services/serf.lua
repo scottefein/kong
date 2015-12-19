@@ -13,20 +13,20 @@ local LOG_FILE = "/tmp/"..SERVICE_NAME..".log"
 local START_TIMEOUT = 10
 local EVENT_NAME = "kong"
 
-function Serf:new(configuration_value)
-  local nginx_working_dir = configuration_value.nginx_working_dir
+function Serf:new(configuration)
+  local nginx_working_dir = configuration.nginx_working_dir
 
-  self._parsed_config = configuration_value
+  self._configuration = configuration
   self._script_path = nginx_working_dir
                         ..(stringy.endswith(nginx_working_dir, "/") and "" or "/")
                         .."serf_event.sh"
-  self._dao_factory = dao.load(self._parsed_config)
+  self._dao_factory = dao.load(self._configuration)
   Serf.super.new(self, SERVICE_NAME, nginx_working_dir)
 end
 
 function Serf:prepare()
   -- Create working directory if missing
-  local ok, err = Serf.super.prepare(self, self._parsed_config.nginx_working_dir)
+  local ok, err = Serf.super.prepare(self, self._configuration.nginx_working_dir)
   if not ok then
     return nil, err
   end
@@ -44,7 +44,7 @@ fi
 
 echo $PAYLOAD > /tmp/payload
 
-COMMAND='require("kong.tools.http_client").post("http://127.0.0.1:]]..self._parsed_config.admin_api_port..[[/cluster/events/", ]].."[['${PAYLOAD}']]"..[[, {["content-type"] = "application/json"})'
+COMMAND='require("kong.tools.http_client").post("http://127.0.0.1:]]..self._configuration.admin_api_port..[[/cluster/events/", ]].."[['${PAYLOAD}']]"..[[, {["content-type"] = "application/json"})'
 
 echo $COMMAND | ]]..luajit_path..[[
 ]]
@@ -63,7 +63,7 @@ echo $COMMAND | ]]..luajit_path..[[
 end
 
 function Serf:_autojoin(current_node_name)
-  if self._parsed_config.cluster["auto-join"] then
+  if self._configuration.cluster["auto-join"] then
 
     logger:info("Auto-joining cluster, please wait..")
 
@@ -90,11 +90,11 @@ function Serf:_autojoin(current_node_name)
 
         local joined
         for _, v in ipairs(nodes) do
-          local _, err = self:invoke_signal("join", {v.address})
+          local _, err = self:invoke_signal("join", {v.cluster_listening_address})
           if err then
-            logger:warn("Cannot join "..v.address..". If the node does not exist anymore it will be automatically purged.")
+            logger:warn("Cannot join "..v.cluster_listening_address..". If the node does not exist anymore it will be automatically purged.")
           else
-            logger:info("Successfully auto-joined "..v.address)
+            logger:info("Successfully auto-joined "..v.cluster_listening_address)
             joined = true
             break
           end
@@ -122,7 +122,7 @@ function Serf:start()
   -- Prepare arguments
   local cmd_args = {}
   setmetatable(cmd_args, require "kong.tools.printable")
-  for k, v in pairs(self._parsed_config.cluster) do
+  for k, v in pairs(self._configuration.cluster) do
     if type(v) ~= "table" and (type(v) == "boolean" or stringy.strip(v) ~= "") then
       cmd_args["-"..k] = v
     end
@@ -130,7 +130,7 @@ function Serf:start()
   cmd_args["-auto-join"] = nil
   cmd_args["-log-level"] = "err"
   cmd_args["-profile"] = "wan"
-  local node_name = cluster_utils.get_node_name(self._parsed_config)
+  local node_name = cluster_utils.get_node_name(self._configuration)
   cmd_args["-node"] = node_name
   cmd_args["-event-handler"] = "member-join,member-leave,member-failed,member-update,member-reap,user:"..EVENT_NAME.."="..self._script_path
 
@@ -171,7 +171,7 @@ function Serf:invoke_signal(signal, args, no_rpc, skip_running_check)
 
   if not args then args = {} end
   setmetatable(args, require "kong.tools.printable")
-  local res, code = IO.os_execute(cmd.." "..signal.." "..(no_rpc and "" or "-rpc-addr="..self._parsed_config.cluster["rpc-addr"]).." "..tostring(args), true)
+  local res, code = IO.os_execute(cmd.." "..signal.." "..(no_rpc and "" or "-rpc-addr="..self._configuration.cluster["rpc-addr"]).." "..tostring(args), true)
   if code == 0 then
     return res
   else
@@ -182,7 +182,7 @@ end
 function Serf:event(t_payload)
   local args = {
     ["-coalesce"] = false,
-    ["-rpc-addr"] = self._parsed_config.cluster["rpc-addr"]
+    ["-rpc-addr"] = self._configuration.cluster["rpc-addr"]
   }
   setmetatable(args, require "kong.tools.printable")
 
@@ -204,7 +204,7 @@ function Serf:stop()
     -- Remove the node from the datastore.
     -- This is useful when this is the only node running in the cluster.
     self._dao_factory.nodes:delete({
-      name = cluster_utils.get_node_name(self._parsed_config)
+      name = cluster_utils.get_node_name(self._configuration)
     })
 
     -- Finally stop Serf

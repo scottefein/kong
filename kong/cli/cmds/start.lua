@@ -1,7 +1,7 @@
 #!/usr/bin/env luajit
 
 local constants = require "kong.constants"
-local configuration = require "kong.cli.utils.configuration"
+local config_loader = require "kong.tools.config_loader"
 local logger = require "kong.cli.utils.logger"
 local services = require "kong.cli.utils.services"
 
@@ -16,13 +16,9 @@ Options:
 
 logger:info("Kong "..constants.VERSION)
 
-local config, err = configuration.parse(args.config)
-if err then
-  logger:error(err)
-  os.exit(1)
-end
+local configuration, configuration_path = config_loader.load_default(args.config)
 
-local status = services.check_status(config)
+local status = services.check_status(configuration, configuration_path)
 if status == services.STATUSES.SOME_RUNNING then
   logger:error("Some services required by Kong are not running. Please execute \"kong restart\"!")
   os.exit(1)
@@ -31,12 +27,12 @@ elseif status == services.STATUSES.ALL_RUNNING then
   os.exit(1)
 end
 
-local ok, err = services.start_all(config)
-if ok then
-  logger:success("Started")
-else
-  services.stop_all(config)
+local ok, err = services.start_all(configuration, configuration_path)
+if not ok then
+  services.stop_all(configuration, configuration_path)
   logger:error(err)
   logger:error("Could not start Kong")
   os.exit(1)
 end
+
+logger:success("Started")

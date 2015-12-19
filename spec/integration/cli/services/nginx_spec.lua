@@ -1,8 +1,8 @@
 require("kong.cli.utils.logger"):set_silent(true) -- Set silent for test
 
 local spec_helper = require "spec.spec_helpers"
-local configuration = require("kong.cli.utils.configuration").parse(spec_helper.get_env().conf_file)
-local nginx = require("kong.cli.services.nginx")(configuration.value, configuration.path)
+local configuration, configuration_path = require("kong.tools.config_loader").load(spec_helper.get_env().conf_file)
+local nginx = require("kong.cli.services.nginx")(configuration, configuration_path)
 
 local TIMEOUT = 10
 
@@ -25,17 +25,16 @@ describe("Nginx", function()
       -- Wait
     end
   end)
-
  
   it("should prepare", function()
     local ok, err = nginx:prepare()
     assert.falsy(err)
     assert.truthy(ok)
 
-    assert.truthy(nginx._parsed_config)
-    assert.truthy(type(nginx._parsed_config) == "table")
+    assert.truthy(nginx._configuration)
+    assert.truthy(type(nginx._configuration) == "table")
 
-    assert.truthy(nginx._kong_config_path)
+    assert.truthy(nginx._configuration_path)
   end)
 
   it("should start and stop", function()

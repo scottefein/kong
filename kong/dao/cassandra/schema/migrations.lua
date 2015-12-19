@@ -107,11 +107,11 @@ local Migrations = {
       return dao_factory:execute_queries [[
         CREATE TABLE IF NOT EXISTS nodes(
           name text,
-          address text,
+          cluster_listening_address text,
           created_at timestamp,
           PRIMARY KEY (name)
         ) WITH default_time_to_live = 3600;
-        CREATE INDEX IF NOT EXISTS ON nodes(address);
+        CREATE INDEX IF NOT EXISTS ON nodes(cluster_listening_address);
       ]]
     end,
     down = function(options, dao_factory)

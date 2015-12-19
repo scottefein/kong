@@ -6,17 +6,17 @@ local Dnsmasq = BaseService:extend()
 
 local SERVICE_NAME = "dnsmasq"
 
-function Dnsmasq:new(configuration_value)
-  self._parsed_config = configuration_value
-  Dnsmasq.super.new(self, SERVICE_NAME, configuration_value.nginx_working_dir)
+function Dnsmasq:new(configuration)
+  self._configuration = configuration
+  Dnsmasq.super.new(self, SERVICE_NAME, self._configuration.nginx_working_dir)
 end
 
 function Dnsmasq:prepare()
-  return Dnsmasq.super.prepare(self, self._parsed_config.nginx_working_dir)
+  return Dnsmasq.super.prepare(self, self._configuration.nginx_working_dir)
 end
 
 function Dnsmasq:start()
-  if self._parsed_config.dns_resolver.dnsmasq then
+  if self._configuration.dns_resolver.dnsmasq then
     if self:is_running() then
       return nil, SERVICE_NAME.." is already running"
     end
@@ -26,14 +26,14 @@ function Dnsmasq:start()
       return nil, err
     end
 
-    local res, code = IO.os_execute(cmd.." -p "..self._parsed_config.dns_resolver.port.." --pid-file="..self._pid_file_path.." -N -o")    
+    local res, code = IO.os_execute(cmd.." -p "..self._configuration.dns_resolver.port.." --pid-file="..self._pid_file_path.." -N -o")    
     if code == 0 then
       while not self:is_running() do
         -- Wait for PID file to be created
       end
 
-      setmetatable(self._parsed_config.dns_resolver, require "kong.tools.printable")
-      logger:info(string.format([[dnsmasq ...........%s]], tostring(self._parsed_config.dns_resolver)))
+      setmetatable(self._configuration.dns_resolver, require "kong.tools.printable")
+      logger:info(string.format([[dnsmasq ...........%s]], tostring(self._configuration.dns_resolver)))
       return true
     else
       return nil, res
@@ -42,7 +42,7 @@ function Dnsmasq:start()
 end
 
 function Dnsmasq:stop()
-  if self._parsed_config.dns_resolver.dnsmasq then
+  if self._configuration.dns_resolver.dnsmasq then
     Dnsmasq.super.stop(self, true) -- Killing dnsmasq just with "kill PID" apparently doesn't terminate it
   end
 end

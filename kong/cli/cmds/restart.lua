@@ -1,7 +1,7 @@
 #!/usr/bin/env luajit
 
 local constants = require "kong.constants"
-local configuration = require "kong.cli.utils.configuration"
+local config_loader = require "kong.tools.config_loader"
 local logger = require "kong.cli.utils.logger"
 local services = require "kong.cli.utils.services"
 
@@ -17,12 +17,8 @@ Options:
   -c,--config (default %s) path to configuration file
 ]], constants.CLI.GLOBAL_KONG_CONF))
 
-local config, err = configuration.parse(args.config)
-if err then
-  logger:error(err)
-  os.exit(1)
-end
+local configuration, configuration_path = config_loader.load_default(args.config)
 
-services.stop_all(config)
+services.stop_all(configuration, configuration_path)
 
 require("kong.cli.cmds.start")

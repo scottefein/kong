@@ -5,7 +5,7 @@ return {
   ["/cache/"] = {
     DELETE = function(self, dao_factory)
       cache.delete_all()
-      return responses.send_HTTP_OK()
+      return responses.send_HTTP_NO_CONTENT()
     end
   },
 
@@ -24,10 +24,10 @@ return {
     DELETE = function(self, dao_factory)
       if self.params.key then
         cache.delete(self.params.key)
-        return responses.send_HTTP_OK()
-      else
-        return responses.send_HTTP_NOT_FOUND()
+        return responses.send_HTTP_NO_CONTENT()
       end
+      
+      return responses.send_HTTP_NOT_FOUND()
     end
   }
 }

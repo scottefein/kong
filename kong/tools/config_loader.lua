@@ -2,6 +2,7 @@ local yaml = require "yaml"
 local IO = require "kong.tools.io"
 local utils = require "kong.tools.utils"
 local logger = require "kong.cli.utils.logger"
+local luarocks = require "kong.cli.utils.luarocks"
 local stringy = require "stringy"
 local constants = require "kong.constants"
 local config_defaults = require "kong.tools.config_defaults"
@@ -38,7 +39,7 @@ local function validate_config_schema(config, config_schema)
 
   for config_key, key_infos in pairs(config_schema) do
     -- Default value
-    property = config[config_key] or key_infos.default
+    property = config[config_key] == nil and key_infos.default or config[config_key]
 
     -- Recursion on table values
     if key_infos.type == "table" and key_infos.content ~= nil then
@@ -131,7 +132,18 @@ function _M.load(config_path)
     config.nginx_working_dir = fs.current_dir().."/"..config.nginx_working_dir
   end
 
-  return config
+  return config, config_path
+end
+
+function _M.load_default(config_path)
+  if not IO.file_exists(config_path) then
+    logger:warn("No configuration at: "..config_path.." using default config instead.")
+    config_path = IO.path:join(luarocks.get_config_dir(), "kong.yml")
+  end
+
+  logger:info("Using configuration: "..config_path)
+
+  return _M.load(config_path)
 end
 
 return _M
